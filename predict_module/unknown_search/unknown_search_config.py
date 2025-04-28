@@ -1,25 +1,28 @@
 class UnknownSearchConfig:
     def __init__(self,
-                 thresh_value=80,
+                 thresh_value=250,
                  line_length=35,
                  min_line_length=150,
-                 max_line_gap=70,
+                 max_line_gap=100,
                  line_repair_kernel_size=7,
                  dilate_kernel_size=3,
                  dilate_iterations=1,
-                 erode_kernel_size=9,
+                 erode_kernel_size=7,
                  erode_iterations=1,
-                 component_min_area=1050,
+                 component_min_area=1300,
                  component_min_width=25,
                  component_min_height=25,
-                 component_max_area=180000,
+                 component_max_area=10000,
                  component_max_width=500,
                  component_max_height=500,
                  component_max_side_multiplier=3.5,
-                 contour_min_width=20,
-                 contour_min_height=20,
+                 contour_min_width=10,
+                 contour_min_height=10,
                  contour_max_area=350000,
-                 max_pixel_count_to_use_remove_lines_modified=500000000):
+                 max_pixel_count_to_use_remove_lines_modified=500000000,
+                 min_multiplier_to_count_as_component_part=10,
+                 max_threshold_to_merge_boxes=0.5,
+                 box_increase_coef=0.1):
         self.thresh_value = thresh_value
         self.line_length = line_length
         self.min_line_length = min_line_length
@@ -40,3 +43,8 @@ class UnknownSearchConfig:
         self.contour_min_height = contour_min_height
         self.contour_max_area = contour_max_area
         self.max_pixel_count_to_use_remove_lines_modified = max_pixel_count_to_use_remove_lines_modified
+        self.min_multiplier_to_count_as_component_part = min_multiplier_to_count_as_component_part
+        self.max_threshold_to_merge_boxes = max_threshold_to_merge_boxes
+        self.box_increase_coef = box_increase_coef
+
+config = UnknownSearchConfig()

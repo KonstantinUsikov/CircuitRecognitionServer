@@ -4,7 +4,7 @@ import cv2
 import easyocr
 from typing import List, Tuple
 
-from predict_module.unknown_search.unknown_search_config import UnknownSearchConfig
+from predict_module.unknown_search.unknown_search_config import config
 from predict_module.unknown_search.boxes import Box
 
 
@@ -76,12 +76,12 @@ def grayscale_image(image: np.ndarray) -> np.ndarray:
     return image_gray
 
 
-def thresh_binary_image(image: np.ndarray, config: UnknownSearchConfig) -> np.ndarray:
+def thresh_binary_image(image: np.ndarray) -> np.ndarray:
     _, image_binary = cv2.threshold(image, config.thresh_value, 255, cv2.THRESH_BINARY)
     return image_binary
 
 
-def remove_lines_from_image(image: np.ndarray, config: UnknownSearchConfig) -> np.ndarray:
+def remove_lines_from_image(image: np.ndarray) -> np.ndarray:
     negative_image = 255 - image
 
     horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (config.line_length, 1))
@@ -99,7 +99,7 @@ def remove_lines_from_image(image: np.ndarray, config: UnknownSearchConfig) -> n
     return image_no_lines
 
 
-def remove_lines_from_image_modified(image: np.ndarray, is_horizontal, config: UnknownSearchConfig) -> np.ndarray:
+def remove_lines_from_image_modified(image: np.ndarray, is_horizontal) -> np.ndarray:
 
     result = image.copy()
     height, width = result.shape
@@ -131,25 +131,25 @@ def remove_lines_from_image_modified(image: np.ndarray, is_horizontal, config: U
     return result
 
 
-def remove_all_lines_from_image(image: np.ndarray, config: UnknownSearchConfig) -> np.ndarray:
+def remove_all_lines_from_image(image: np.ndarray) -> np.ndarray:
     image_height, image_width = image.shape
     if image_height * image_width < config.max_pixel_count_to_use_remove_lines_modified:
-        image_no_lines = remove_lines_from_image_modified(image, True, config)
-        image_no_lines = remove_lines_from_image_modified(image_no_lines, False, config)
+        image_no_lines = remove_lines_from_image_modified(image, True)
+        image_no_lines = remove_lines_from_image_modified(image_no_lines, False)
         config.line_length = 100
-        image_no_lines = remove_lines_from_image(image_no_lines, config)
+        image_no_lines = remove_lines_from_image(image_no_lines)
     else:
-        image_no_lines = remove_lines_from_image(image, config)
+        image_no_lines = remove_lines_from_image(image)
     return image_no_lines
 
 
-def erode_image(image: np.ndarray, config: UnknownSearchConfig) -> np.ndarray:
+def erode_image(image: np.ndarray) -> np.ndarray:
     kernel = np.ones((config.erode_kernel_size, config.erode_kernel_size), np.uint8)
     image_erode = cv2.erode(image, kernel, iterations=config.erode_iterations)
     return image_erode
 
 
-def dilate_image(image: np.ndarray, config: UnknownSearchConfig) -> np.ndarray:
+def dilate_image(image: np.ndarray) -> np.ndarray:
     kernel = np.ones((config.dilate_kernel_size, config.dilate_kernel_size), np.uint8)
     image_dilate = cv2.dilate(image, kernel, iterations=config.dilate_iterations)
     return image_dilate

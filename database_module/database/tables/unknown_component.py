@@ -1,7 +1,7 @@
 # noinspection PyUnresolvedReferences
 from playhouse.postgres_ext import ArrayField
 from peewee import Model, AutoField, ForeignKeyField, FloatField, BlobField
-from database_module.database.core import db_reports
+from database_module.database.core import db
 from database_module.database.views.unknown_component_view import UnknownComponentView
 from database_module.database.tables.circuit import Circuit
 from database_module.database.tables.cluster import Cluster
@@ -19,7 +19,7 @@ class UnknownComponent(Model):
     features = ArrayField(FloatField, null=False)
 
     class Meta:
-        database = db_reports
+        database = db
         table_name = 'unknown_component'
 
     def to_user(self):

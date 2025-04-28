@@ -1,3 +1,6 @@
+from predict_module.unknown_search.unknown_search_config import config
+
+
 class Box:
     def __init__(self, x: int, y: int, w: int, h: int):
         self.x = x
@@ -32,9 +35,12 @@ class Box:
     def intersects_with(self, other: 'Box') -> bool:
         return self.distance_to(other) == 0
 
-    def adjacent_to(self, other: 'Box', threshold_multiplier: float = 0.1) -> bool:
+    def adjacent_to(self, other: 'Box', threshold: float = 1) -> bool:
         dist = self.distance_to(other)
-        threshold = (self.w + self.h + other.w + other.h) / 4 * threshold_multiplier
+        a1 = self.w * self.h
+        a2 = other.w * other.h
+        if max(a1, a2) / min(a1, a2) > config.min_multiplier_to_count_as_component_part:
+            dist /= 2
         return dist <= threshold
 
     def merge(self, other: 'Box') -> 'Box':
@@ -43,6 +49,15 @@ class Box:
         x2 = max(self.x + self.w / 2, other.x + other.w / 2)
         y2 = max(self.y + self.h / 2, other.y + other.h / 2)
         return Box(int((x1 + x2) / 2), int((y1 + y2) / 2), int(x2 - x1), int(y2 - y1))
+
+    def increase(self, coef: float = 0.5) -> 'Box':
+        r = (self.w + self.h) / 2
+        return Box(
+            x=self.x,
+            y=self.y,
+            w=self.w + int(r * coef),
+            h=self.h + int(r * coef)
+        )
 
     def to_box_float(self, image_width: int, image_height: int) -> 'BoxFloat':
         return BoxFloat(

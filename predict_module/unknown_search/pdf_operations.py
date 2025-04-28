@@ -18,7 +18,7 @@ def split_pdf(pdf_doc: fitz.Document) -> List[fitz.Document]:
 
 def remove_text_and_annotations_from_pdf(pdf_doc: fitz.Document) -> fitz.Document:
     for page in pdf_doc:
-        word_list = page.get_text("blocks")
+        word_list = page.get_text("words")
         for x0, y0, x1, y1, *_ in word_list:
             page.add_redact_annot(fitz.Rect(x0, y0, x1, y1))
         page.apply_redactions()

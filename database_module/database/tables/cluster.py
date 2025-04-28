@@ -1,5 +1,5 @@
 from peewee import Model, TextField, AutoField
-from database_module.database.core import db_reports
+from database_module.database.core import db
 from database_module.database.views.cluster_view import ClusterView
 
 
@@ -8,7 +8,7 @@ class Cluster(Model):
     name = TextField(null=False)
 
     class Meta:
-        database = db_reports
+        database = db
         table_name = 'cluster'
 
     def to_user(self):

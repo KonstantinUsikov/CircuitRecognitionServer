@@ -3,6 +3,8 @@ from typing import List, Optional
 from peewee import DoesNotExist
 from database_module.repositories.circuit_repository import create_circuit, get_circuit_by_id
 from database_module.database.models import ReportedShape, ReportView
+from database_module.repositories.recognized_component_repository import create_recognized_component, \
+    get_recognized_components_by_circuit_id, delete_recognized_components_by_circuit_id
 from database_module.repositories.unknown_component_repository import create_unknown_component, get_unknown_components_by_circuit_id, delete_unknown_components_by_circuit_id
 from database_module.repositories.circuit_repository import get_last_circuit, get_all_circuits, delete_circuit, get_circuits_count
 from database_module.image_helper import encode_image
@@ -11,7 +13,16 @@ from database_module.image_helper import encode_image
 def create_report(circuit_image: bytes, reported_shapes: List[ReportedShape]) -> int:
     circuit_id = create_circuit(image=circuit_image)
     for shape in reported_shapes:
-        if shape.cls == "-":
+        if shape.cls != "-":
+            create_recognized_component(circuit_id=circuit_id,
+                                        x=shape.x,
+                                        y=shape.y,
+                                        w=shape.w,
+                                        h=shape.h,
+                                        image=base64.b64decode(shape.img),
+                                        class_name=shape.cls,
+                                        confidence=shape.score)
+        else:
             create_unknown_component(circuit_id=circuit_id,
                                      cluster_id=None,
                                      x=shape.x,
@@ -27,7 +38,7 @@ def get_report_by_circuit_id(circuit_id: int) -> Optional[ReportView]:
     try:
         circuit = get_circuit_by_id(circuit_id)
 
-        recognized_components = []
+        recognized_components = get_recognized_components_by_circuit_id(circuit_id)
         unknown_components = get_unknown_components_by_circuit_id(circuit_id)
 
         reported_shapes = []
@@ -91,6 +102,7 @@ def get_reports_count() -> int:
 def delete_report(circuit_id: int):
     try:
         delete_unknown_components_by_circuit_id(circuit_id)
+        delete_recognized_components_by_circuit_id(circuit_id)
 
         delete_circuit(circuit_id)
         return True

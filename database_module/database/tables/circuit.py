@@ -1,5 +1,5 @@
 from peewee import Model, AutoField, BlobField
-from database_module.database.core import db_reports
+from database_module.database.core import db
 from database_module.database.views.circuit_view import CircuitView
 
 
@@ -8,7 +8,7 @@ class Circuit(Model):
     image = BlobField(null=False)
 
     class Meta:
-        database = db_reports
+        database = db
         table_name = 'circuit'
 
     def to_user(self):

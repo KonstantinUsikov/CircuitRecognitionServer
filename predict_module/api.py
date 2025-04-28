@@ -94,14 +94,20 @@ async def predict(input_model:predict_entity_input):
             # Create a BytesIO object from the binary data
             pdf_bytes = BytesIO(image_data)
             doc = fitz.Document(stream=pdf_bytes, filetype="pdf")
-            unknowns_pred, images = get_unknown_boxes_from_pdf(doc, [], UnknownSearchConfig())
+            unknowns_pred, images = get_unknown_boxes_from_pdf(doc, [])
         else:
-            unknowns_pred, images = get_unknown_boxes_from_image(image, [], UnknownSearchConfig())
+            unknowns_pred, images = get_unknown_boxes_from_image(image, [])
 
         classes = predict_classes(images)
         unknowns = []
+        boxes = []
         for u, cls in zip(unknowns_pred, classes):
-            unknowns.append(predict_entity_output.rp_shp(cls=cls, score=0, x=u.x,y=u.y,w=u.w,h=u.h))
+            unknowns.append(predict_entity_output.rp_shp(cls=cls, score=0, x=u.x, y=u.y, w=u.w, h=u.h))
+            # if cls == "Unknown":
+            #     unknowns.append(predict_entity_output.rp_shp(cls=cls, score=0, x=u.x,y=u.y,w=u.w,h=u.h))
+            # else:
+            #     boxes.append(predict_entity_output.box(majorClass=cls, confidence=0, x=u.x, y=u.y, w=u.w, h=u.h))
+
         result = {"boxes": [], "unknowns": unknowns}
 
         if is_pdf:
