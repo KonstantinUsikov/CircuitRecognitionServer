@@ -5,20 +5,20 @@ from database_module.database.tables.recognized_component import RecognizedCompo
 from database_module.database.tables.unknown_component import UnknownComponent
 
 
-def create_circuit():
+def create_circuit_table():
     db.create_tables([Circuit])
 
-def create_cluster():
+def create_cluster_table():
     db.create_tables([Cluster])
 
-def create_unknown_component():
+def create_unknown_component_table():
     db.create_tables([UnknownComponent])
 
-def create_recognized_component():
+def create_recognized_component_table():
     db.create_tables([RecognizedComponent])
 
 def create_all_tables():
-    create_circuit()
-    create_cluster()
-    create_unknown_component()
-    create_recognized_component()
+    create_circuit_table()
+    create_cluster_table()
+    create_unknown_component_table()
+    create_recognized_component_table()

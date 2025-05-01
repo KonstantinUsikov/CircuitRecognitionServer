@@ -41,7 +41,7 @@ def update_recognized_component(component_id: int, x: Optional[float] = None, y:
         if h is not None:
             component.h = h
         if image is not None:
-            component.image = image
+            component.circuit_data = image
         if class_name is not None:
             component.class_name = class_name
         if confidence is not None:
@@ -57,7 +57,7 @@ def delete_recognized_component(component_id: int) -> bool:
         return True
     return False
 
-def delete_recognized_components_by_circuit_id(circuit_id: int) -> bool:
+def delete_recognized_components_by_circuit_id(circuit_id: int) -> int:
     query = RecognizedComponent.delete().where(RecognizedComponent.circuit_id == circuit_id)
     deleted_count = query.execute()
-    return deleted_count > 0
+    return deleted_count

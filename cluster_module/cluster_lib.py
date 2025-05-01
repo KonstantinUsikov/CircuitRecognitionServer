@@ -1,11 +1,11 @@
-import numpy as np
 import torch
-import hdbscan
 from torchvision import models, transforms
-from sklearn.preprocessing import StandardScaler
 from torchvision.models import ResNet50_Weights
-from typing import List
+import hdbscan
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+from typing import List
 
 
 MIN_CLUSTER_LENGTH = 10
@@ -17,27 +17,10 @@ model = torch.nn.Sequential(*(list(model.children())[:-1]))  # Убираем п
 model.eval()
 
 
-# Определение класса Cluster
-class Cluster:
-    def __init__(self, cluster_id: int, name: str, images: List[bytes]):
-        self.cluster_id: int = cluster_id
-        self.name: str = name
-        self.images: List[bytes] = images
-
-    def __str__(self):
-        return f"id: {self.cluster_id}, name: {self.name}, count: {len(self.images)}"
-
-
-# Функция для чтения изображения
-def load_image_bytes(img_path: str) -> bytes:
-    with open(img_path, "rb") as f:
-        return f.read()
-
-
 # Функция для извлечения признаков из изображения
 def extract_features(img_array: np.ndarray) -> np.ndarray:
     transform = transforms.Compose([
-        transforms.ToPILImage(),  # Преобразуем np.ndarray в PIL Image
+        transforms.ToPILImage(),
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
@@ -48,7 +31,7 @@ def extract_features(img_array: np.ndarray) -> np.ndarray:
     return features.squeeze().numpy().flatten()
 
 
-# Функция производит кластеризацию массива изображений
+# Функция для кластеризации массива изображений
 def cluster_images(features: np.ndarray) -> List[int]:
     # Нормализация данных
     scaler = StandardScaler()
@@ -60,7 +43,7 @@ def cluster_images(features: np.ndarray) -> List[int]:
 
     # Определяем точки, которые НЕ являются шумом (-1)
     mask_valid = labels != -1
-    valid_points = feature_vectors[mask_valid]  # Используем нормализованные признаки!
+    valid_points = feature_vectors[mask_valid]  # Используем нормализованные признаки
     valid_labels = labels[mask_valid]  # Их кластеры
 
     if len(valid_labels) > 0:

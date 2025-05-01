@@ -45,7 +45,7 @@ def update_unknown_component(component_id: int, circuit_id: Optional[int] = None
         if h is not None:
             component.h = h
         if image is not None:
-            component.image = image
+            component.circuit_data = image
         if features is not None:
             component.features = features
         component.save()
@@ -59,7 +59,16 @@ def delete_unknown_component(component_id: int) -> bool:
         return True
     return False
 
-def delete_unknown_components_by_circuit_id(circuit_id: int) -> bool:
+def delete_unknown_components_by_circuit_id(circuit_id: int) -> int:
     query = UnknownComponent.delete().where(UnknownComponent.circuit_id == circuit_id)
     deleted_count = query.execute()
-    return deleted_count > 0
+    return deleted_count
+
+def update_clusters_for_components(component_ids: List[int], cluster_id: int) -> int:
+    if not component_ids:
+        return 0
+    updated_count = (UnknownComponent
+                     .update({UnknownComponent.cluster: cluster_id})
+                     .where(UnknownComponent.id.in_(component_ids))
+                     .execute())
+    return updated_count

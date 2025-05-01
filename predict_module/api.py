@@ -1,22 +1,22 @@
-import base64
-from io import BytesIO
-import cv2
-import fitz
-import httpx
-import numpy as np
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
-import traceback
-from typing import List, Dict, Optional
-from pydantic import BaseModel
 from fastapi import HTTPException
-import settings
-from predict_module.predict_lib import predict_classes
-from predict_module.unknown_search.lib_unknown import get_unknown_boxes_from_pdf, get_unknown_boxes_from_image
-from predict_module.unknown_search.pdf_operations import convert_pdf_to_image_by_dpi, \
-    convert_pdf_to_image_by_pixel_count
-from predict_module.unknown_search.unknown_search_config import UnknownSearchConfig
+from pydantic import BaseModel
+import traceback
+import httpx
+import numpy as np
+import fitz
+import cv2
+import base64
+from io import BytesIO
+from typing import List
+
+from settings import backend_hosts
+from predict_module.unknown_search.pdf_operations import convert_pdf_to_image_by_pixel_count
+from predict_module.unknown_search.unknown_lib import get_unknown_boxes_from_pdf, get_unknown_boxes_from_image, \
+    crop_boxes_from_pdf, crop_boxes_from_image
+from predict_module.prediction.predict_lib import predict_classes
 
 app = FastAPI()
 
@@ -29,133 +29,108 @@ app.add_middleware(
 )
 
 
-class predict_entity_input(BaseModel):
-    image: str
+class PredictRequest(BaseModel):
+    circuit_data: str
 
-class predict_entity_output(BaseModel):
-    class box(BaseModel):
+class PredictResponse(BaseModel):
+    class RecognizedComponent(BaseModel):
         id: int
-        majorClass: str
-        minorDescription: str
+        x: float
+        y: float
+        w: float
+        h: float
+        image: str
+        class_name: str
         confidence: float
-        detectedText: str
-        connection: int | str
-        article: str
+    class UnknownComponent(BaseModel):
+        id: int
         x: float
         y: float
         w: float
         h: float
-    boxes: List[box]
-    class rp_shp(BaseModel):
-        cls: str
-        score: float
-        x: float
-        y: float
-        w: float
-        h: float
-    unknowns: List[rp_shp]
+        image: str
+    circuit_id: int
+    circuit_image: str
+    recognized_components: List[RecognizedComponent]
+    unknown_components: List[UnknownComponent]
 
-
-@app.post("/api/predict/predict", response_model=predict_entity_output, responses={500: {"description": "str"}})
-async def predict(input_model:predict_entity_input):
+@app.post("/api/predict/run_prediction", response_model=PredictResponse, responses={500: {"description": "str"}})
+async def run_prediction(request: PredictRequest):
     try:
-        is_pdf = input_model.image.split(",")[0].__contains__("application/pdf")
-
-        if is_pdf:
-            pdf_str = input_model.image
-            base64str = pdf_str.split(",")[1]
-
-            # Decode the base64 string to binary data
-            image_data = base64.b64decode(base64str)
-
-            # Create a BytesIO object from the binary data
-            pdf_bytes = BytesIO(image_data)
-            doc = fitz.Document(stream=pdf_bytes, filetype="pdf")
-            image = convert_pdf_to_image_by_dpi(doc)
+        circuit_header, circuit_base64_data = request.circuit_data.split(",", 1)
+        if "application/pdf" in circuit_header:
+            pdf_data = base64.b64decode(circuit_base64_data)
+            pdf_bytes = BytesIO(pdf_data)
+            circuit_pdf = fitz.Document(stream=pdf_bytes, filetype="pdf")
+            circuit_image = convert_pdf_to_image_by_pixel_count(circuit_pdf)
         else:
-            image_str = input_model.image
-            base64str = image_str.split(",")[1]
-
-            # Decode the base64 string to binary data
-            image_data = base64.b64decode(base64str)
-
-            # Create a BytesIO object from the binary data
+            image_data = base64.b64decode(circuit_base64_data)
             image_bytes = BytesIO(image_data)
+            circuit_image = cv2.imdecode(np.frombuffer(image_bytes.read(), np.uint8), cv2.IMREAD_COLOR)
 
-            image = cv2.imdecode(np.frombuffer(image_bytes.read(), np.uint8), cv2.IMREAD_COLOR)
+        _, buffer = cv2.imencode(".jpg", circuit_image)
+        circuit_image_to_add = base64.b64encode(buffer).decode("utf-8")
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{backend_hosts.database_url}/api/db/delete_circuits_by_image", json={"circuit_image": circuit_image_to_add})
+            response.raise_for_status()
+            delete_circuits_by_image_result = response.json()
 
-        if is_pdf:
-            pdf_str = input_model.image
-            base64str = pdf_str.split(",")[1]
-
-            # Decode the base64 string to binary data
-            image_data = base64.b64decode(base64str)
-
-            # Create a BytesIO object from the binary data
-            pdf_bytes = BytesIO(image_data)
-            doc = fitz.Document(stream=pdf_bytes, filetype="pdf")
-            unknowns_pred, images = get_unknown_boxes_from_pdf(doc, [])
+        if "application/pdf" in circuit_header:
+            component_boxes = get_unknown_boxes_from_pdf(circuit_pdf, [])
+            component_images = crop_boxes_from_pdf(circuit_pdf, component_boxes)
+            component_classes, confidence_scores = predict_classes(component_images)
         else:
-            unknowns_pred, images = get_unknown_boxes_from_image(image, [])
+            component_boxes = get_unknown_boxes_from_image(circuit_image, [])
+            component_images = crop_boxes_from_image(circuit_image, component_boxes)
+            component_classes, confidence_scores = predict_classes(component_images)
 
-        classes = predict_classes(images)
-        unknowns = []
-        boxes = []
-        for u, cls in zip(unknowns_pred, classes):
-            unknowns.append(predict_entity_output.rp_shp(cls=cls, score=0, x=u.x, y=u.y, w=u.w, h=u.h))
-            # if cls == "Unknown":
-            #     unknowns.append(predict_entity_output.rp_shp(cls=cls, score=0, x=u.x,y=u.y,w=u.w,h=u.h))
-            # else:
-            #     boxes.append(predict_entity_output.box(majorClass=cls, confidence=0, x=u.x, y=u.y, w=u.w, h=u.h))
+        recognized_components_to_add = []
+        unknown_components_to_add = []
+        for box, image, class_name, confidence in zip(component_boxes, component_images, component_classes, confidence_scores):
+            _, buffer = cv2.imencode(".jpg", image)
+            image_base64 = base64.b64encode(buffer).decode("utf-8")
+            if class_name.lower() == "unknown":
+                unknown_components_to_add.append({
+                    "x": box.x,
+                    "y": box.y,
+                    "w": box.w,
+                    "h": box.h,
+                    "image": image_base64,
+                })
+            else:
+                recognized_components_to_add.append({
+                    "x": box.x,
+                    "y": box.y,
+                    "w": box.w,
+                    "h": box.h,
+                    "image": image_base64,
+                    "class_name": class_name,
+                    "confidence": confidence
+                })
 
-        result = {"boxes": [], "unknowns": unknowns}
+        add_components_json = {
+            "circuit_image": circuit_image_to_add,
+            "recognized_components": recognized_components_to_add,
+            "unknown_components": unknown_components_to_add,
+        }
 
-        if is_pdf:
-            pdf_str = input_model.image
-            base64str = pdf_str.split(",")[1]
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{backend_hosts.database_url}/api/db/add_circuit_and_components", json=add_components_json)
+            response.raise_for_status()
+            add_components_result = response.json()
 
-            # Decode the base64 string to binary data
-            image_data = base64.b64decode(base64str)
+        circuit_id = add_components_result["circuit_id"]
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{backend_hosts.database_url}/api/db/get_components_by_circuit_id",
+                                        params={"circuit_id": circuit_id})
+            response.raise_for_status()
+            get_components_result = response.json()
+        return PredictResponse(**get_components_result)
 
-            # Create a BytesIO object from the binary data
-            pdf_bytes = BytesIO(image_data)
-            doc = fitz.Document(stream=pdf_bytes, filetype="pdf")
-            image = convert_pdf_to_image_by_pixel_count(doc)
-        else:
-            image_str = input_model.image
-            base64str = image_str.split(",")[1]
-
-            # Decode the base64 string to binary data
-            image_data = base64.b64decode(base64str)
-
-            # Create a BytesIO object from the binary data
-            image_bytes = BytesIO(image_data)
-
-            image = cv2.imdecode(np.frombuffer(image_bytes.read(), np.uint8), cv2.IMREAD_COLOR)
-
-        shapes = []
-        for shape in unknowns:
-            shapes.append({
-                "cls": "-",
-                "score":0,
-                "x": shape.x * image.shape[1],
-                "y": shape.y * image.shape[0],
-                "w": shape.w * image.shape[1],
-                "h": shape.h * image.shape[0]
-            })
-
-        _, img_str = cv2.imencode(".jpg", image)
-        httpx.post(
-            f"{settings.Backends.report}/api/report/report", json={
-                "clean": base64.b64encode(img_str).decode("utf-8"),
-                "shapes": shapes
-            }, timeout=999)
-
-        return result
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host=backend_hosts.predict_host, port=backend_hosts.predict_port)

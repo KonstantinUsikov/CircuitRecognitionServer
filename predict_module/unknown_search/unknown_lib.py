@@ -182,10 +182,9 @@ def get_unknown_boxes_from_pdf(pdf_doc: fitz.Document,
 
     unknown_boxes = get_unknown_boxes(image=image_no_text,
                                       recognized_boxes=recognized_boxes)
-    unknown_components = crop_images(image=initial_image, boxes=unknown_boxes)
 
-    show_image(draw_boxes(DebugImages.initial_image, unknown_boxes, show_text=True))
-    return [box.to_box_float(image_width, image_height) for box in unknown_boxes], unknown_components
+    #show_image(draw_boxes(DebugImages.initial_image, unknown_boxes, show_text=True))
+    return [box.to_box_float(image_width, image_height) for box in unknown_boxes]
 
 
 def get_unknown_boxes_from_image(image: np.ndarray,
@@ -203,7 +202,19 @@ def get_unknown_boxes_from_image(image: np.ndarray,
 
     unknown_boxes = get_unknown_boxes(image=image_no_text,
                                       recognized_boxes=recognized_boxes)
-    unknown_components = crop_images(image=initial_image, boxes=unknown_boxes)
 
     #show_image(draw_boxes(DebugImages.initial_image, unknown_boxes, show_text=True))
-    return [box.to_box_float(image_width, image_height) for box in unknown_boxes], unknown_components
+    return [box.to_box_float(image_width, image_height) for box in unknown_boxes]
+
+
+def crop_boxes_from_pdf(pdf_doc: fitz.Document, boxes: List[BoxFloat]) -> List[np.ndarray]:
+    image = convert_pdf_to_image_by_dpi(pdf_doc)
+    image_height, image_width = image.shape[:2]
+    result = crop_images(image=image, boxes=[box.to_box(image_width, image_height) for box in boxes])
+    return result
+
+
+def crop_boxes_from_image(image: np.ndarray, boxes: List[BoxFloat]) -> List[np.ndarray]:
+    image_height, image_width = image.shape[:2]
+    result = crop_images(image=image, boxes=[box.to_box(image_width, image_height) for box in boxes])
+    return result
