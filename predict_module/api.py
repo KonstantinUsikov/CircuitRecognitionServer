@@ -12,6 +12,7 @@ import base64
 from io import BytesIO
 from typing import List
 
+from predict_module.unknown_search.unknown_search_config import UnknownSearchConfig
 from settings import backend_hosts
 from predict_module.unknown_search.pdf_operations import convert_pdf_to_image_by_pixel_count
 from predict_module.unknown_search.unknown_lib import get_unknown_boxes_from_pdf, get_unknown_boxes_from_image, \
@@ -30,7 +31,32 @@ app.add_middleware(
 
 
 class PredictRequest(BaseModel):
+    class ConfigModel(BaseModel):
+        thresh_value: int = 250
+        line_length: int = 35
+        min_line_length: int = 150
+        max_line_gap: int = 100
+        line_repair_kernel_size: int = 7
+        dilate_kernel_size: int = 3
+        dilate_iterations: int = 1
+        erode_kernel_size: int = 7
+        erode_iterations: int = 1
+        component_min_area: int = 1300
+        component_min_width: int = 25
+        component_min_height: int = 25
+        component_max_area: int = 10000
+        component_max_width: int = 500
+        component_max_height: int = 500
+        component_max_side_multiplier: float = 3.5
+        contour_min_width: int = 10
+        contour_min_height: int = 10
+        contour_max_area: int = 350000
+        max_pixel_count_to_use_remove_lines_modified: int = 500000000
+        min_multiplier_to_count_as_component_part: float = 10
+        max_threshold_to_merge_boxes: float = 0.5
+        box_increase_factor: float = 0.1
     circuit_data: str
+    config: ConfigModel
 
 class PredictResponse(BaseModel):
     class RecognizedComponent(BaseModel):
@@ -75,12 +101,13 @@ async def run_prediction(request: PredictRequest):
             response.raise_for_status()
             delete_circuits_by_image_result = response.json()
 
+        search_config = UnknownSearchConfig(**request.config.dict())
         if "application/pdf" in circuit_header:
-            component_boxes = get_unknown_boxes_from_pdf(circuit_pdf, [])
+            component_boxes = get_unknown_boxes_from_pdf(circuit_pdf, [], search_config)
             component_images = crop_boxes_from_pdf(circuit_pdf, component_boxes)
             component_classes, confidence_scores = predict_classes(component_images)
         else:
-            component_boxes = get_unknown_boxes_from_image(circuit_image, [])
+            component_boxes = get_unknown_boxes_from_image(circuit_image, [], search_config)
             component_images = crop_boxes_from_image(circuit_image, component_boxes)
             component_classes, confidence_scores = predict_classes(component_images)
 

@@ -6,7 +6,7 @@ class UnknownSearchConfig:
                  max_line_gap=100,
                  line_repair_kernel_size=7,
                  dilate_kernel_size=3,
-                 dilate_iterations=1,
+                 dilate_iterations=0,
                  erode_kernel_size=7,
                  erode_iterations=1,
                  component_min_area=1300,
@@ -22,7 +22,7 @@ class UnknownSearchConfig:
                  max_pixel_count_to_use_remove_lines_modified=500000000,
                  min_multiplier_to_count_as_component_part=10,
                  max_threshold_to_merge_boxes=0.5,
-                 box_increase_coef=0.1):
+                 box_increase_factor=0.1):
         self.thresh_value = thresh_value
         self.line_length = line_length
         self.min_line_length = min_line_length
@@ -45,6 +45,4 @@ class UnknownSearchConfig:
         self.max_pixel_count_to_use_remove_lines_modified = max_pixel_count_to_use_remove_lines_modified
         self.min_multiplier_to_count_as_component_part = min_multiplier_to_count_as_component_part
         self.max_threshold_to_merge_boxes = max_threshold_to_merge_boxes
-        self.box_increase_coef = box_increase_coef
-
-config = UnknownSearchConfig()
+        self.box_increase_factor = box_increase_factor

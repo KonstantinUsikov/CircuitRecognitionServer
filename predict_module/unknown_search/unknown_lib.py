@@ -7,7 +7,7 @@ from predict_module.unknown_search.pdf_operations import convert_pdf_to_image_by
 from predict_module.unknown_search.boxes import Box, BoxFloat
 from predict_module.unknown_search.image_operations import grayscale_image, thresh_binary_image, remove_all_lines_from_image, dilate_image, draw_boxes, \
     erode_image, crop_images, find_text_boxes, show_image
-from predict_module.unknown_search.unknown_search_config import config
+from predict_module.unknown_search.unknown_search_config import UnknownSearchConfig
 
 
 class DebugImages:
@@ -17,7 +17,7 @@ class DebugImages:
     preprocessed_image = None
 
 
-def find_global_boxes(preprocessed_image: np.ndarray) -> List[Box]:
+def find_global_boxes(preprocessed_image: np.ndarray, config: UnknownSearchConfig) -> List[Box]:
     contours, _ = cv2.findContours(
         preprocessed_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_TC89_KCOS)
 
@@ -30,7 +30,7 @@ def find_global_boxes(preprocessed_image: np.ndarray) -> List[Box]:
     return boxes
 
 
-def merge_boxes(boxes: List[Box], threshold: float) -> List[Box]:
+def merge_boxes(boxes: List[Box], config: UnknownSearchConfig, threshold: float) -> List[Box]:
     merged = []
     remaining_boxes = set(boxes)
 
@@ -39,7 +39,7 @@ def merge_boxes(boxes: List[Box], threshold: float) -> List[Box]:
         merged_boxes = {box}
 
         while True:
-            new_boxes = {b for b in remaining_boxes if any(b.adjacent_to(mb, threshold) for mb in merged_boxes)}
+            new_boxes = {b for b in remaining_boxes if any(b.adjacent_to(mb, config, threshold) for mb in merged_boxes)}
             if not new_boxes:
                 break
             merged_boxes.update(new_boxes)
@@ -55,9 +55,9 @@ def merge_boxes(boxes: List[Box], threshold: float) -> List[Box]:
     return merged
 
 
-def merge_boxes_full(boxes: List[Box], threshold: float) -> List[Box]:
+def merge_boxes_full(boxes: List[Box], config: UnknownSearchConfig, threshold: float) -> List[Box]:
     while True:
-        merged_boxes = merge_boxes(boxes, threshold)
+        merged_boxes = merge_boxes(boxes, config, threshold)
         if len(merged_boxes) == len(boxes):
             break
         boxes = merged_boxes
@@ -105,7 +105,7 @@ def correct_boxes(image_no_lines: np.ndarray, boxes: List[Box]) -> List[Box]:
     return correct_boxes
 
 
-def box_can_be_component(box: Box) -> bool:
+def box_can_be_component(box: Box, config: UnknownSearchConfig) -> bool:
     return (config.component_min_width < box.w < config.component_max_width
             and config.component_min_height < box.h < config.component_max_height
             and config.component_min_area < box.w * box.h < config.component_max_area
@@ -113,59 +113,63 @@ def box_can_be_component(box: Box) -> bool:
             and box.h * config.component_max_side_multiplier > box.w)
 
 
-def find_unknown_boxes(preprocessed_image: np.ndarray, image_no_lines: np.ndarray) -> List[Box]:
-    global_boxes = find_global_boxes(preprocessed_image)
+def find_unknown_boxes(preprocessed_image: np.ndarray, image_no_lines: np.ndarray, config: UnknownSearchConfig) -> List[Box]:
+    global_boxes = find_global_boxes(preprocessed_image, config)
     #show_image(draw_boxes(DebugImages.preprocessed_image, global_boxes, show_text=True))
 
-    merged_global_boxes = merge_boxes_full(global_boxes, 0)
-    merged_global_boxes = merge_boxes_full(merged_global_boxes, config.max_threshold_to_merge_boxes)
+    merged_global_boxes = merge_boxes_full(global_boxes, config, 0)
+    merged_global_boxes = merge_boxes_full(merged_global_boxes, config, config.max_threshold_to_merge_boxes)
     #show_image(draw_boxes(DebugImages.preprocessed_image, merged_global_boxes, show_text=True))
 
     corrected_boxes = correct_boxes(image_no_lines, merged_global_boxes)
     #show_image(draw_boxes(DebugImages.initial_image, corrected_boxes, show_text=True))
 
-    component_boxes = [box for box in corrected_boxes if box_can_be_component(box)]
+    component_boxes = [box for box in corrected_boxes if box_can_be_component(box, config)]
     #show_image(draw_boxes(DebugImages.initial_image, component_boxes, show_text=True))
 
-    final_boxes = [box.increase(config.box_increase_coef) for box in component_boxes]
+    final_boxes = [box.increase(config.box_increase_factor) for box in component_boxes]
     return final_boxes
 
 
 def get_unknown_boxes(image: np.ndarray,
-                      recognized_boxes: List[Box]) -> List[Box]:
+                      recognized_boxes: List[Box],
+                      config: UnknownSearchConfig) -> List[Box]:
     image_gray = grayscale_image(image)
     #show_image(image_gray)
 
-    image_binary = thresh_binary_image(image_gray)
+    image_binary = thresh_binary_image(image_gray, config)
     #show_image(image_binary)
 
-    image_no_lines = remove_all_lines_from_image(image_binary)
+    image_no_lines = remove_all_lines_from_image(image_binary, config)
     image_no_lines = draw_boxes(image_no_lines, recognized_boxes, color=(255, 255, 255), fill=True)
     DebugImages.image_no_lines = cv2.cvtColor(image_no_lines, cv2.COLOR_GRAY2RGB)
     #show_image(image_no_lines)
 
-    #image_dilate = dilate_image(image_no_lines, dilate_kernel_size, dilate_iterations)
+    image_dilate = dilate_image(image_no_lines, config)
     #show_image(image_dilate)
 
-    image_erode = erode_image(image_no_lines)
+    image_erode = erode_image(image_dilate, config)
     DebugImages.preprocessed_image = cv2.cvtColor(image_erode, cv2.COLOR_GRAY2RGB)
     #show_image(image_erode)
 
-    unknown_boxes = find_unknown_boxes(preprocessed_image=image_erode, image_no_lines=image_no_lines)
+    unknown_boxes = find_unknown_boxes(preprocessed_image=image_erode, image_no_lines=image_no_lines, config=config)
     return unknown_boxes
 
 
 def get_unknown_components(initial_image:np.ndarray,
                            image: np.ndarray,
-                           recognized_boxes: List[Box]) -> List[np.ndarray]:
+                           recognized_boxes: List[Box],
+                           config: UnknownSearchConfig) -> List[np.ndarray]:
     unknown_boxes = get_unknown_boxes(image=image,
-                                      recognized_boxes=recognized_boxes)
+                                      recognized_boxes=recognized_boxes,
+                                      config=config)
     unknown_components = crop_images(image=initial_image, boxes=unknown_boxes)
     return unknown_components
 
 
 def get_unknown_boxes_from_pdf(pdf_doc: fitz.Document,
-                               recognized_boxes: List[BoxFloat]) -> (List[BoxFloat], List[np.ndarray]):
+                               recognized_boxes: List[BoxFloat],
+                               config: UnknownSearchConfig) -> (List[BoxFloat], List[np.ndarray]):
     initial_image = convert_pdf_to_image_by_dpi(pdf_doc)
     DebugImages.initial_image = initial_image
     #show_image(initial_image)
@@ -181,14 +185,16 @@ def get_unknown_boxes_from_pdf(pdf_doc: fitz.Document,
     recognized_boxes = [box_float.to_box(image_width, image_height) for box_float in recognized_boxes]
 
     unknown_boxes = get_unknown_boxes(image=image_no_text,
-                                      recognized_boxes=recognized_boxes)
+                                      recognized_boxes=recognized_boxes,
+                                      config=config)
 
     #show_image(draw_boxes(DebugImages.initial_image, unknown_boxes, show_text=True))
     return [box.to_box_float(image_width, image_height) for box in unknown_boxes]
 
 
 def get_unknown_boxes_from_image(image: np.ndarray,
-                                 recognized_boxes: List[BoxFloat]) -> (List[BoxFloat], List[np.ndarray]):
+                                 recognized_boxes: List[BoxFloat],
+                                 config: UnknownSearchConfig) -> (List[BoxFloat], List[np.ndarray]):
     initial_image = image.copy()
     DebugImages.initial_image = initial_image
 
@@ -201,7 +207,8 @@ def get_unknown_boxes_from_image(image: np.ndarray,
     recognized_boxes = [box_float.to_box(image_width, image_height) for box_float in recognized_boxes]
 
     unknown_boxes = get_unknown_boxes(image=image_no_text,
-                                      recognized_boxes=recognized_boxes)
+                                      recognized_boxes=recognized_boxes,
+                                      config=config)
 
     #show_image(draw_boxes(DebugImages.initial_image, unknown_boxes, show_text=True))
     return [box.to_box_float(image_width, image_height) for box in unknown_boxes]

@@ -18,6 +18,6 @@ if __name__ == "__main__":
 
     threading.Thread(target=run_app, args=(database_module.api.app, backend_hosts.database_host, backend_hosts.database_port), daemon=True).start()
     threading.Thread(target=run_app, args=(predict_module.api.app, backend_hosts.predict_host, backend_hosts.predict_port), daemon=True).start()
-    threading.Thread(target=run_app, args=(cluster_module.api.app, backend_hosts.report_host, backend_hosts.report_port), daemon=True).start()
+    threading.Thread(target=run_app, args=(cluster_module.api.app, backend_hosts.cluster_host, backend_hosts.cluster_port), daemon=True).start()
 
     threading.Event().wait()

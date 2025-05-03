@@ -1,4 +1,4 @@
-from predict_module.unknown_search.unknown_search_config import config
+from predict_module.unknown_search.unknown_search_config import UnknownSearchConfig
 
 
 class Box:
@@ -35,7 +35,7 @@ class Box:
     def intersects_with(self, other: 'Box') -> bool:
         return self.distance_to(other) == 0
 
-    def adjacent_to(self, other: 'Box', threshold: float = 1) -> bool:
+    def adjacent_to(self, other: 'Box', config: UnknownSearchConfig, threshold: float = 1) -> bool:
         dist = self.distance_to(other)
         a1 = self.w * self.h
         a2 = other.w * other.h

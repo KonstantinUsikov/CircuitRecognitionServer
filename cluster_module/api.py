@@ -99,4 +99,4 @@ async def run_clusterization():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host=backend_hosts.report_host, port=backend_hosts.report_port)
+    uvicorn.run(app, host=backend_hosts.cluster_host, port=backend_hosts.cluster_port)
