@@ -34,8 +34,7 @@ def update_unknown_component(component_id: int, circuit_id: Optional[int] = None
     if component:
         if circuit_id is not None:
             component.circuit = circuit_id
-        if cluster_id is not None:
-            component.cluster = cluster_id
+        component.cluster = cluster_id
         if x is not None:
             component.x = x
         if y is not None:

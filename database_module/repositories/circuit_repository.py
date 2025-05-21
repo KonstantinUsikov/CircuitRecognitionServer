@@ -1,11 +1,43 @@
 import hashlib
 from typing import List, Optional
+import cv2
+import numpy as np
+
 from database_module.database.tables.circuit import Circuit
 from database_module.database.views.circuit_view import CircuitView
 
 
+def resize_image(image_bytes: bytes, max_size: int = 2000) -> bytes:
+    # Декодирование байтов изображения в numpy-массив
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)  # Поддерживает альфа-канал
+
+    if img is None:
+        raise ValueError("Не удалось декодировать изображение")
+
+    # Получаем текущие размеры
+    height, width = img.shape[:2]
+
+    # Вычисляем масштаб (по большей стороне)
+    scale = max_size / max(width, height)
+    new_width = int(round(width * scale))
+    new_height = int(round(height * scale))
+
+    # Ресайз с сохранением пропорций (уменьшение или увеличение)
+    resized_img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_LANCZOS4)
+
+    # Кодируем в PNG (без потерь)
+    success, encoded_img = cv2.imencode('.png', resized_img)
+    if not success:
+        raise ValueError("Ошибка при кодировании изображения")
+
+    return encoded_img.tobytes()
+
+
+
 def create_circuit(image: bytes) -> int:
-    circuit = Circuit.create(image=image)
+    resized_image = resize_image(image)
+    circuit = Circuit.create(image=image, resized_image=resized_image)
     return circuit.id
 
 def get_circuit_by_id(circuit_id: int) -> Optional[CircuitView]:

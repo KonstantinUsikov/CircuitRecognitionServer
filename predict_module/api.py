@@ -88,7 +88,7 @@ async def run_prediction(request: PredictRequest):
             pdf_data = base64.b64decode(circuit_base64_data)
             pdf_bytes = BytesIO(pdf_data)
             circuit_pdf = fitz.Document(stream=pdf_bytes, filetype="pdf")
-            circuit_image = convert_pdf_to_image_by_pixel_count(circuit_pdf)
+            circuit_image = convert_pdf_to_image_by_pixel_count(circuit_pdf, 0, 10_000_000)
         else:
             image_data = base64.b64decode(circuit_base64_data)
             image_bytes = BytesIO(image_data)

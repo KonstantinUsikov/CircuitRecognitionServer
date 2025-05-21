@@ -23,8 +23,10 @@ async def get_circuits():
         all_circuits = get_all_circuits()
         circuits = []
         for circuit in all_circuits:
-            circuits.append(GetCircuitsResponse.Circuit(circuit_id=circuit.id,
-                                                        circuit_image=base64.b64encode(circuit.image).decode('utf-8')))
+            circuits.append(GetCircuitsResponse.Circuit(
+                circuit_id=circuit.id,
+                circuit_image=base64.b64encode(circuit.resized_image).decode('utf-8')
+            ))
 
         return GetCircuitsResponse(circuits=circuits)
 
