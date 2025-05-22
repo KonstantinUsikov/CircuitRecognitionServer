@@ -11,7 +11,8 @@ from database_module.repositories.cluster_repository import get_all_clusters
 from database_module.repositories.recognized_component_repository import create_recognized_component, \
     get_recognized_components_by_circuit_id, delete_recognized_components_by_circuit_id, get_all_recognized_components
 from database_module.repositories.unknown_component_repository import create_unknown_component, \
-    get_unknown_components_by_circuit_id, delete_unknown_components_by_circuit_id, get_all_unknown_components
+    get_unknown_components_by_circuit_id, delete_unknown_components_by_circuit_id, get_all_unknown_components, \
+    get_unknown_components_without_features, update_unknown_components_features
 
 
 router = APIRouter()
@@ -80,6 +81,60 @@ async def get_unknown_components():
                                                                                     image=base64.b64encode(component.image).decode('utf-8'),
                                                                                     features=component.features))
         return GetUnknownComponentsResponse(unknown_components=unknown_components)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+class GetUnknownComponentsWithoutFeaturesResponse(BaseModel):
+    class UnknownComponent(BaseModel):
+        id: int
+        circuit_id: int
+        cluster_id: Optional[int]
+        x: float
+        y: float
+        w: float
+        h: float
+        image: str
+        features: List[float]
+    unknown_components: List[UnknownComponent]
+
+@router.get("/api/db/get_unknown_components_without_features", response_model=GetUnknownComponentsWithoutFeaturesResponse, responses={500: {"description": "Internal Server Error"}})
+async def get_unknown_components(limit: Optional[int] = None):
+    try:
+        components = get_unknown_components_without_features(limit=limit)
+        unknown_components = []
+        for component in components:
+            unknown_components.append(GetUnknownComponentsWithoutFeaturesResponse.UnknownComponent(id=component.id,
+                                                                                    circuit_id=component.circuit_id,
+                                                                                    cluster_id=component.cluster_id,
+                                                                                    x=component.x,
+                                                                                    y=component.y,
+                                                                                    w=component.w,
+                                                                                    h=component.h,
+                                                                                    image=base64.b64encode(component.image).decode('utf-8'),
+                                                                                    features=component.features))
+        return GetUnknownComponentsWithoutFeaturesResponse(unknown_components=unknown_components)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+class UpdateFeaturesRequest(BaseModel):
+    class UnknownComponent(BaseModel):
+        id: int
+        features: List[float]
+    unknown_components: List[UnknownComponent]
+
+class UpdateFeaturesResponse(BaseModel):
+    count: int
+
+@router.put("/api/db/update_unknown_components_features", response_model=UpdateFeaturesResponse, responses={500: {"description": "Internal Server Error"}})
+async def get_unknown_components(request: UpdateFeaturesRequest):
+    try:
+        data_dict = request.dict()
+        count = update_unknown_components_features(data_dict)
+        return UpdateFeaturesResponse(count=count)
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Internal Server Error")

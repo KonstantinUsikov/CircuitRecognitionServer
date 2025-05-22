@@ -54,6 +54,7 @@ async def run_clusterization():
 
         clustered_count = sum(1 for component in unknown_components if component.get("cluster_id") is not None)
         if clustered_count != len(unknown_components):
+            update_features_payload = {"unknown_components": []}
             features = []
             for unknown_component in unknown_components:
                 if unknown_component["features"]:
@@ -63,6 +64,19 @@ async def run_clusterization():
                     image_data = cv2.imdecode(np.frombuffer(image_bytes.read(), np.uint8), cv2.IMREAD_COLOR)
                     image_features = extract_features(image_data)
                     features.append(image_features)
+                    update_features_payload["unknown_components"].append({
+                        "id": unknown_component["id"],
+                        "features": image_features.tolist()
+                    })
+
+            if update_features_payload["unknown_components"]:
+                async with httpx.AsyncClient() as client:
+                    update_response = await client.put(
+                        f"{backend_hosts.database_url}/api/db/update_unknown_components_features",
+                        json=update_features_payload
+                    )
+                    update_response.raise_for_status()
+
             cluster_labels = cluster_images(np.array(features))
 
             cluster_components = {}

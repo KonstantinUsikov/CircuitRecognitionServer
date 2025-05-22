@@ -29,6 +29,12 @@ def get_unknown_components_by_circuit_id(circuit_id: int) -> List[UnknownCompone
 def get_all_unknown_components() -> List[UnknownComponentView]:
     return [component.to_user() for component in UnknownComponent.select()]
 
+def get_unknown_components_without_features(limit: Optional[int] = None) -> List[UnknownComponentView]:
+    query = UnknownComponent.select().where(UnknownComponent.features == [])
+    if limit is not None:
+        query = query.limit(limit)
+    return [component.to_user() for component in query]
+
 def update_unknown_component(component_id: int, circuit_id: Optional[int] = None, cluster_id: Optional[int] = None, x: Optional[float] = None, y: Optional[float] = None, w: Optional[float] = None, h: Optional[float] = None, image: Optional[bytes] = None, features: Optional[List[float]] = None) -> bool:
     component = UnknownComponent.get_or_none(UnknownComponent.id == component_id)
     if component:
@@ -50,6 +56,35 @@ def update_unknown_component(component_id: int, circuit_id: Optional[int] = None
         component.save()
         return True
     return False
+
+def update_unknown_components_features(data: dict) -> int:
+    unknown_components = data.get("unknown_components")
+    if not unknown_components:
+        return 0
+
+    values_clause_parts = []
+    for comp in unknown_components:
+        features = comp['features']
+        if features:
+            # Нормальный массив, передаем как есть
+            values_clause_parts.append(f"({comp['id']}, ARRAY{features}::float8[])")
+        else:
+            # Пустой массив — явно кастим к float8[]
+            values_clause_parts.append(f"({comp['id']}, ARRAY[]::float8[])")
+
+    values_clause = ", ".join(values_clause_parts)
+
+    sql = f"""
+        UPDATE unknown_component AS uc SET features = v.features
+        FROM (VALUES {values_clause}) AS v(id, features)
+        WHERE uc.id = v.id
+    """
+
+    db = UnknownComponent._meta.database
+
+    with db.atomic():
+        cursor = db.execute_sql(sql)
+        return cursor.rowcount
 
 def delete_unknown_component(component_id: int) -> bool:
     component = UnknownComponent.get_or_none(UnknownComponent.id == component_id)

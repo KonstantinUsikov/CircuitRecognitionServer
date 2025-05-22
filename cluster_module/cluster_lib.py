@@ -11,7 +11,7 @@ MIN_CLUSTER_LENGTH = 10
 
 
 # Инициализация модели для извлечения признаков
-model = timm.create_model("vit_base_patch16_224_dino", pretrained=True, num_classes=0)
+model = timm.create_model("vit_base_patch16_224.dino", pretrained=True, num_classes=0)
 model.eval()
 
 
