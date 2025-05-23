@@ -5,7 +5,7 @@ from io import BytesIO
 import base64
 import time
 
-from cluster_module.cluster_lib import extract_features
+from cluster_module import cluster_lib
 from settings import backend_hosts
 
 
@@ -29,7 +29,7 @@ def update_features(limit: int = 10) -> int:
         image_data = cv2.imdecode(np.frombuffer(image_bytes.read(), np.uint8), cv2.IMREAD_COLOR)
         unknown_components_to_update.append({
             "id": comp["id"],
-            "features": extract_features(image_data).tolist()
+            "features": cluster_lib.extract_features(image_data).tolist()
         })
 
     payload_update = {"unknown_components": unknown_components_to_update}

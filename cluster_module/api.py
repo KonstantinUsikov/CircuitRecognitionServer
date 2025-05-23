@@ -12,7 +12,8 @@ from io import BytesIO
 from typing import List
 
 from settings import backend_hosts
-from cluster_module.cluster_lib import extract_features, cluster_images
+from cluster_module import cluster_lib
+
 
 app = FastAPI()
 
@@ -62,7 +63,7 @@ async def run_clusterization():
                 else:
                     image_bytes = BytesIO(base64.b64decode(unknown_component["image"]))
                     image_data = cv2.imdecode(np.frombuffer(image_bytes.read(), np.uint8), cv2.IMREAD_COLOR)
-                    image_features = extract_features(image_data)
+                    image_features = cluster_lib.extract_features(image_data)
                     features.append(image_features)
                     update_features_payload["unknown_components"].append({
                         "id": unknown_component["id"],
@@ -77,7 +78,7 @@ async def run_clusterization():
                     )
                     update_response.raise_for_status()
 
-            cluster_labels = cluster_images(np.array(features))
+            cluster_labels = cluster_lib.cluster_images(np.array(features))
 
             cluster_components = {}
             for cluster_label, unknown_component in zip(cluster_labels, unknown_components):

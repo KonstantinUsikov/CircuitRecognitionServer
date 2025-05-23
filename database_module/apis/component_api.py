@@ -6,13 +6,10 @@ import base64
 from collections import defaultdict
 from typing import List, Optional
 
-from database_module.repositories.circuit_repository import create_circuit, get_circuit_by_id, delete_circuit
-from database_module.repositories.cluster_repository import get_all_clusters
-from database_module.repositories.recognized_component_repository import create_recognized_component, \
-    get_recognized_components_by_circuit_id, delete_recognized_components_by_circuit_id, get_all_recognized_components
-from database_module.repositories.unknown_component_repository import create_unknown_component, \
-    get_unknown_components_by_circuit_id, delete_unknown_components_by_circuit_id, get_all_unknown_components, \
-    get_unknown_components_without_features, update_unknown_components_features
+from database_module.repositories import circuit_repository
+from database_module.repositories import cluster_repository
+from database_module.repositories import recognized_component_repository
+from database_module.repositories import unknown_component_repository
 
 
 router = APIRouter()
@@ -34,7 +31,7 @@ class GetRecognizedComponentsResponse(BaseModel):
 @router.get("/api/db/get_recognized_components", response_model=GetRecognizedComponentsResponse, responses={500: {"description": "Internal Server Error"}})
 async def get_recognized_components():
     try:
-        components = get_all_recognized_components()
+        components = recognized_component_repository.get_all_recognized_components()
         recognized_components = []
         for component in components:
             recognized_components.append(GetRecognizedComponentsResponse.RecognizedComponent(id=component.id,
@@ -68,7 +65,7 @@ class GetUnknownComponentsResponse(BaseModel):
 @router.get("/api/db/get_unknown_components", response_model=GetUnknownComponentsResponse, responses={500: {"description": "Internal Server Error"}})
 async def get_unknown_components():
     try:
-        components = get_all_unknown_components()
+        components = unknown_component_repository.get_all_unknown_components()
         unknown_components = []
         for component in components:
             unknown_components.append(GetUnknownComponentsResponse.UnknownComponent(id=component.id,
@@ -102,7 +99,7 @@ class GetUnknownComponentsWithoutFeaturesResponse(BaseModel):
 @router.get("/api/db/get_unknown_components_without_features", response_model=GetUnknownComponentsWithoutFeaturesResponse, responses={500: {"description": "Internal Server Error"}})
 async def get_unknown_components(limit: Optional[int] = None):
     try:
-        components = get_unknown_components_without_features(limit=limit)
+        components = unknown_component_repository.get_unknown_components_without_features(limit=limit)
         unknown_components = []
         for component in components:
             unknown_components.append(GetUnknownComponentsWithoutFeaturesResponse.UnknownComponent(id=component.id,
@@ -132,8 +129,8 @@ class UpdateFeaturesResponse(BaseModel):
 @router.put("/api/db/update_unknown_components_features", response_model=UpdateFeaturesResponse, responses={500: {"description": "Internal Server Error"}})
 async def get_unknown_components(request: UpdateFeaturesRequest):
     try:
-        data_dict = request.dict()
-        count = update_unknown_components_features(data_dict)
+        data_dict = request.model_dump()
+        count = unknown_component_repository.update_unknown_components_features(data_dict)
         return UpdateFeaturesResponse(count=count)
     except Exception as e:
         traceback.print_exc()
@@ -168,12 +165,12 @@ class GetComponentsByCircuitIdResponse(BaseModel):
                        500: {"description": "Internal Server Error"}})
 async def get_components(circuit_id: int):
     try:
-        circuit = get_circuit_by_id(circuit_id=circuit_id)
+        circuit = circuit_repository.get_circuit_by_id(circuit_id=circuit_id)
         if circuit is None:
             raise HTTPException(status_code=404, detail="Circuit not found")
 
-        recognized_components = get_recognized_components_by_circuit_id(circuit_id=circuit.id)
-        unknown_components = get_unknown_components_by_circuit_id(circuit_id=circuit.id)
+        recognized_components = recognized_component_repository.get_recognized_components_by_circuit_id(circuit_id=circuit.id)
+        unknown_components = unknown_component_repository.get_unknown_components_by_circuit_id(circuit_id=circuit.id)
         recognized_components_response = []
         unknown_components_response = []
         for component in recognized_components:
@@ -241,11 +238,11 @@ class GetComponentsFullByCircuitIdResponse(BaseModel):
                        500: {"description": "Internal Server Error"}})
 async def get_components_full_by_circuit_id(circuit_id: int):
     try:
-        circuit = get_circuit_by_id(circuit_id=circuit_id)
+        circuit = circuit_repository.get_circuit_by_id(circuit_id=circuit_id)
         if circuit is None:
             raise HTTPException(status_code=404, detail="Circuit not found")
 
-        recognized_components = get_recognized_components_by_circuit_id(circuit_id=circuit.id)
+        recognized_components = recognized_component_repository.get_recognized_components_by_circuit_id(circuit_id=circuit.id)
         recognized_components_response = [
             GetComponentsFullByCircuitIdResponse.RecognizedComponent(
                 id=comp.id,
@@ -259,8 +256,8 @@ async def get_components_full_by_circuit_id(circuit_id: int):
             ) for comp in recognized_components
         ]
 
-        clusters = get_all_clusters()
-        components = get_unknown_components_by_circuit_id(circuit_id=circuit_id)
+        clusters = cluster_repository.get_all_clusters()
+        components = unknown_component_repository.get_unknown_components_by_circuit_id(circuit_id=circuit_id)
 
         cluster_components = defaultdict(list)
         unclustered_components_response = []
@@ -332,11 +329,11 @@ class AddComponentsResponse(BaseModel):
           responses={500: {"description": "Internal Server Error"}})
 async def add_components(request: AddComponentsRequest):
     try:
-        circuit_id = create_circuit(image=base64.b64decode(request.circuit_image))
+        circuit_id = circuit_repository.create_circuit(image=base64.b64decode(request.circuit_image))
 
         unknown_component_ids = []
         for component in request.unknown_components:
-            component_id = create_unknown_component(circuit_id=circuit_id,
+            component_id = unknown_component_repository.create_unknown_component(circuit_id=circuit_id,
                                                  cluster_id=None,
                                                  x=component.x,
                                                  y=component.y,
@@ -348,7 +345,7 @@ async def add_components(request: AddComponentsRequest):
 
         recognized_component_ids = []
         for component in request.recognized_components:
-            component_id = create_recognized_component(circuit_id=circuit_id,
+            component_id = recognized_component_repository.create_recognized_component(circuit_id=circuit_id,
                                                     x=component.x,
                                                     y=component.y,
                                                     w=component.w,
@@ -381,11 +378,47 @@ async def delete_components(request: DeleteComponentsRequest):
     try:
         count = 0
 
-        count += delete_recognized_components_by_circuit_id(circuit_id=request.circuit_id)
-        count += delete_unknown_components_by_circuit_id(circuit_id=request.circuit_id)
-        delete_circuit(circuit_id=request.circuit_id)
+        count += recognized_component_repository.delete_recognized_components_by_circuit_id(circuit_id=request.circuit_id)
+        count += unknown_component_repository.delete_unknown_components_by_circuit_id(circuit_id=request.circuit_id)
+        circuit_repository.delete_circuit(circuit_id=request.circuit_id)
 
         return DeleteComponentsResponse(count=count)
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+class DeleteUnknownComponentsByIdsRequest(BaseModel):
+    component_ids: List[int]
+
+class DeleteUnknownComponentsByIdsResponse(BaseModel):
+    count: int
+
+@router.post("/api/db/delete_unknown_components_by_ids", response_model=DeleteUnknownComponentsByIdsResponse,
+             responses={500: {"description": "Internal Server Error"}})
+async def delete_unknown_components_by_ids(request: DeleteUnknownComponentsByIdsRequest):
+    try:
+        count = unknown_component_repository.delete_unknown_components_by_ids(request.component_ids)
+        return DeleteUnknownComponentsByIdsResponse(count=count)
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+class DeleteUnknownComponentsByClusterIdsRequest(BaseModel):
+    cluster_ids: List[int]
+
+class DeleteUnknownComponentsByClusterIdsResponse(BaseModel):
+    count: int
+
+@router.post("/api/db/delete_unknown_components_by_cluster_ids", response_model=DeleteUnknownComponentsByClusterIdsResponse,
+             responses={500: {"description": "Internal Server Error"}})
+async def delete_unknown_components_by_cluster_ids(request: DeleteUnknownComponentsByClusterIdsRequest):
+    try:
+        count = unknown_component_repository.delete_unknown_components_by_cluster_ids(request.cluster_ids)
+        return DeleteUnknownComponentsByClusterIdsResponse(count=count)
 
     except Exception as e:
         traceback.print_exc()

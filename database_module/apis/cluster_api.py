@@ -6,10 +6,10 @@ import base64
 from collections import defaultdict
 from typing import List
 
-from database_module.repositories.circuit_repository import get_circuit_by_id
-from database_module.repositories.cluster_repository import get_all_clusters, delete_all_clusters, create_clusters
-from database_module.repositories.unknown_component_repository import get_all_unknown_components, \
-    update_clusters_for_components, get_unknown_components_by_circuit_id
+from database_module.repositories import circuit_repository
+from database_module.repositories import cluster_repository
+from database_module.repositories import unknown_component_repository
+
 
 router = APIRouter()
 
@@ -36,8 +36,8 @@ class GetClustersResponse(BaseModel):
             responses={500: {"description": "Internal Server Error"}})
 async def get_clusters():
     try:
-        clusters = get_all_clusters()
-        components = get_all_unknown_components()
+        clusters = cluster_repository.get_all_clusters()
+        components = unknown_component_repository.get_all_unknown_components()
 
         cluster_components = defaultdict(list)
         unclustered_components = []
@@ -95,12 +95,12 @@ class GetClustersByCircuitIdResponse(BaseModel):
             responses={500: {"description": "Internal Server Error"}})
 async def get_clusters_by_circuit_id(circuit_id: int):
     try:
-        circuit = get_circuit_by_id(circuit_id=circuit_id)
+        circuit = circuit_repository.get_circuit_by_id(circuit_id=circuit_id)
         if circuit is None:
             raise HTTPException(status_code=404, detail="Circuit not found")
 
-        clusters = get_all_clusters()
-        components = get_unknown_components_by_circuit_id(circuit_id=circuit_id)
+        clusters = cluster_repository.get_all_clusters()
+        components = unknown_component_repository.get_unknown_components_by_circuit_id(circuit_id=circuit_id)
 
         cluster_components = defaultdict(list)
         unclustered_components = []
@@ -161,13 +161,13 @@ class RecreateClustersResponse(BaseModel):
           responses={500: {"description": "Internal Server Error"}})
 async def recreate_clusters(request: RecreateClustersRequest):
     try:
-        delete_all_clusters()
+        cluster_repository.delete_all_clusters()
 
         cluster_data = [{"name": cluster.name, "label": cluster.label} for cluster in request.clusters]
-        cluster_ids = create_clusters(clusters=cluster_data)
+        cluster_ids = cluster_repository.create_clusters(clusters=cluster_data)
 
         for idx, cluster in enumerate(request.clusters):
-            update_clusters_for_components(component_ids=cluster.component_ids, cluster_id=cluster_ids[idx])
+            unknown_component_repository.update_clusters_for_components(component_ids=cluster.component_ids, cluster_id=cluster_ids[idx])
 
         return RecreateClustersResponse(cluster_ids=cluster_ids)
 

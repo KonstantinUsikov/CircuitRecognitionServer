@@ -93,6 +93,16 @@ def delete_unknown_component(component_id: int) -> bool:
         return True
     return False
 
+def delete_unknown_components_by_ids(component_ids: List[int]) -> int:
+    query = UnknownComponent.delete().where(UnknownComponent.id.in_(component_ids))
+    deleted_count = query.execute()
+    return deleted_count
+
+def delete_unknown_components_by_cluster_ids(cluster_ids: List[int]) -> int:
+    query = UnknownComponent.delete().where(UnknownComponent.cluster_id.in_(cluster_ids))
+    deleted_count = query.execute()
+    return deleted_count
+
 def delete_unknown_components_by_circuit_id(circuit_id: int) -> int:
     query = UnknownComponent.delete().where(UnknownComponent.circuit_id == circuit_id)
     deleted_count = query.execute()

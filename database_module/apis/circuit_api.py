@@ -5,7 +5,7 @@ import traceback
 import base64
 from typing import List
 
-from database_module.repositories.circuit_repository import get_circuits_by_image, delete_circuits, get_all_circuits
+from database_module.repositories import circuit_repository
 
 
 router = APIRouter()
@@ -20,7 +20,7 @@ class GetCircuitsResponse(BaseModel):
 @router.get("/api/db/get_circuits", response_model=GetCircuitsResponse)
 async def get_circuits():
     try:
-        all_circuits = get_all_circuits()
+        all_circuits = circuit_repository.get_all_circuits()
         circuits = []
         for circuit in all_circuits:
             circuits.append(GetCircuitsResponse.Circuit(
@@ -46,7 +46,7 @@ class GetCircuitsByImageResponse(BaseModel):
 async def circuit_exists(request: GetCircuitsByImageRequest):
     try:
         circuit_image_bytes = base64.b64decode(request.circuit_image)
-        circuits = get_circuits_by_image(image_bytes=circuit_image_bytes)
+        circuits = circuit_repository.get_circuits_by_image(image_bytes=circuit_image_bytes)
 
         circuit_ids = []
         for circuit in circuits:
@@ -69,13 +69,13 @@ class DeleteCircuitsByImageResponse(BaseModel):
 async def circuit_exists(request: GetCircuitsByImageRequest):
     try:
         circuit_image_bytes = base64.b64decode(request.circuit_image)
-        circuits = get_circuits_by_image(image_bytes=circuit_image_bytes)
+        circuits = circuit_repository.get_circuits_by_image(image_bytes=circuit_image_bytes)
 
         circuit_ids = []
         for circuit in circuits:
             circuit_ids.append(circuit.id)
 
-        count = delete_circuits(circuit_ids=circuit_ids)
+        count = circuit_repository.delete_circuits(circuit_ids=circuit_ids)
 
         return DeleteCircuitsByImageResponse(count=count)
 
