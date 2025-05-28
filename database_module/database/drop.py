@@ -22,3 +22,7 @@ def drop_all_tables():
     drop_recognized_component_table()
     drop_cluster_table()
     drop_circuit_table()
+
+
+if __name__ == '__main__':
+    drop_all_tables()

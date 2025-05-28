@@ -22,3 +22,7 @@ def create_all_tables():
     create_cluster_table()
     create_unknown_component_table()
     create_recognized_component_table()
+
+
+if __name__ == '__main__':
+    create_all_tables()
